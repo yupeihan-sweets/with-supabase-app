@@ -29,48 +29,12 @@ interface Tool {
   id: string; 
   name: string;
   description: string;
-  icon: React.ReactNode;
+  icon: string;
   url: string;
   category: string;
   category_id: string;
   clicks_count: number;
 }
-
-// 图标映射函数 - 修改以支持图片URL
-const getIconComponent = (iconName: string): React.ReactNode => {
-  // 如果传入的是URL，则返回Image组件
-  if (iconName.startsWith('http')) {
-    return (
-      <div className="relative w-full h-full flex items-center justify-center">
-        <Image
-          src={iconName}
-          alt="Tool icon"
-          width={36}
-          height={36}
-          className="w-8 h-8 object-contain"
-        />
-      </div>
-    );
-  }
-  
-  // 对于非URL的情况，保持原来的图标映射逻辑
-  switch (iconName) {
-    case 'MessageSquare':
-      return <MessageSquare className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-    case 'Image':
-      return <ImageIcon className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-    case 'Video':
-      return <Video className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-    case 'Music':
-      return <Music className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-    case 'Code':
-      return <Code className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-    case 'Palette':
-      return <Palette className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-    default:
-      return <Sparkles className="w-8 h-8 text-purple-600 dark:text-purple-400" />;
-  }
-};
 
 // 使用备用数据，当数据库数据为空时使用
 const fallbackCategories = ["聊天助手", "图像生成", "视频工具", "音频工具", "编程辅助"];
@@ -80,7 +44,7 @@ const fallbackTools: Tool[] = [
     id: "1",
     name: "ChatGPT",
     description: "Advanced AI language model for conversation and text generation",
-    icon: <MessageSquare className="w-6 h-6" />,
+    icon: "https://chat.openai.com/favicon.ico",
     url: "https://chat.openai.com",
     category: "聊天助手",
     category_id: "1",
@@ -108,7 +72,7 @@ export function ClientHomePage({
         id: tool.id,
         name: tool.name,
         description: tool.description,
-        icon: getIconComponent(tool.icon),
+        icon: tool.icon,
         url: tool.url,
         category_id: tool.category_id,
         category: dbCategories.find(c => c.id === tool.category_id)?.name || "未分类",
@@ -399,7 +363,14 @@ export function ClientHomePage({
                   <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200 border border-gray-100 dark:border-gray-700 h-full flex flex-col">
                     <div className="flex items-center gap-4 mb-4">
                       <div className="w-10 h-10 flex items-center justify-center rounded-lg overflow-hidden">
-                        {tool.icon}
+                        {tool.icon && (
+                          <img 
+                            src={tool.icon} 
+                            alt={tool.name}
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => (e.target as HTMLImageElement).style.display = 'none'} 
+                          />
+                        )}
                       </div>
                       <h3 className="text-xl font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200">
                         {tool.name}

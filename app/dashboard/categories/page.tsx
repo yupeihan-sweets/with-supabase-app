@@ -24,6 +24,7 @@ export default async function CategoriesPage() {
       .eq('id', user.id)
       .single();
     
+    console.log('User profile:', profile);
     isAdmin = profile?.role === 'admin';
   } catch (error) {
     console.error('Error fetching profile:', error);

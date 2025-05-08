@@ -21,6 +21,8 @@ export default async function HomePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   
+  console.log('User:', user);
+  
   // 获取用户角色信息
   let isAdmin = false;
   if (user) {
@@ -31,6 +33,7 @@ export default async function HomePage() {
         .eq('id', user.id)
         .single();
       
+      console.log('User profile:', profile);
       isAdmin = profile?.role === 'admin';
     } catch (error) {
       console.error('Error fetching profile:', error);

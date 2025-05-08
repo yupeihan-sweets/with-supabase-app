@@ -357,18 +357,33 @@ export function DashboardClient({
                     data={pieChartData}
                     cx="50%"
                     cy="50%"
-                    labelLine={true}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
                     outerRadius={130}
                     fill="#8884d8"
                     dataKey="value"
+                    label={false}
                   >
                     {pieChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => [`${value} 次点击`, '点击量']} />
-                  <Legend />
+                  <Legend 
+                    layout="horizontal" 
+                    verticalAlign="bottom" 
+                    align="center"
+                    formatter={(value, entry, index) => {
+                      const { payload } = entry;
+                      if (!payload) return value;
+                      const percent = (payload.value / pieChartData.reduce((a, b) => a + b.value, 0) * 100).toFixed(0);
+                      return (
+                        <span className="text-sm inline-block mr-2 mb-1">
+                          <span className="text-gray-800 dark:text-gray-200">{value}</span>
+                          <span className="text-gray-500 dark:text-gray-400">: {percent}%</span>
+                        </span>
+                      );
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )}

@@ -33,6 +33,8 @@ export function CategoriesClient({ categories: initialCategories }: { categories
   useEffect(() => {
     async function checkAdminStatus() {
       try {
+        console.log("开始检查管理员权限...");
+        
         // 获取当前会话
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
@@ -43,9 +45,12 @@ export function CategoriesClient({ categories: initialCategories }: { categories
         }
         
         if (!sessionData.session) {
+          console.log("没有活跃会话，用户可能未登录");
           setError("请先登录");
           return;
         }
+        
+        console.log("会话有效, 用户ID:", sessionData.session.user.id);
         
         // 获取当前用户
         const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -57,9 +62,12 @@ export function CategoriesClient({ categories: initialCategories }: { categories
         }
         
         if (!user) {
+          console.log("未登录状态");
           setError("请先登录");
           return;
         }
+        
+        console.log("当前用户ID:", user.id);
         
         // 获取用户角色信息
         const { data: profile, error: profileError } = await supabase
@@ -75,6 +83,7 @@ export function CategoriesClient({ categories: initialCategories }: { categories
         }
         
         const hasAdminRole = profile?.role === 'admin';
+        console.log("用户角色:", profile?.role, "是否管理员:", hasAdminRole);
         
         setIsAdmin(hasAdminRole);
         
@@ -82,6 +91,7 @@ export function CategoriesClient({ categories: initialCategories }: { categories
           setError("您没有管理员权限，无法编辑分类");
         } else {
           setError(null);
+          console.log("管理员权限验证成功");
         }
       } catch (error) {
         console.error("检查管理员状态时出错:", error);
@@ -161,6 +171,8 @@ export function CategoriesClient({ categories: initialCategories }: { categories
   
   // 保存编辑
   const handleEditSave = async (id: string) => {
+    console.log("开始编辑保存，ID:", id, "类型:", typeof id);
+    
     // 检查管理员权限
     if (!isAdmin) {
       setError("您没有管理员权限，无法更新分类");
@@ -189,37 +201,47 @@ export function CategoriesClient({ categories: initialCategories }: { categories
       }
       
       if (!session) {
+        console.error("无有效会话");
         throw new Error("您的登录已过期，请重新登录");
       }
       
-      // 检查分类是否存在
-      const { data: existingCategory, error: checkError } = await supabase
-        .from('categories')
-        .select()
-        .eq('id', id)
-        .single();
+      console.log("使用有效会话:", session.user.id);
       
-      if (checkError) {
-        console.error("检查分类存在时出错:", checkError);
-        throw new Error("找不到要编辑的分类");
+      // 先检查记录是否存在
+      console.log("检查分类是否存在，ID:", id);
+      try {
+        const { data: existingCategory, error: checkError } = await supabase
+          .from('categories')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (checkError) {
+          console.log("检查分类存在时出错:", checkError);
+          throw new Error(`无法找到ID为 ${id} 的分类: ${checkError.message}`);
+        }
+        
+        console.log("找到分类:", existingCategory);
+      } catch (error) {
+        console.error("检查分类存在性出错:", error);
+        throw new Error("验证分类时出错，请刷新页面后重试");
       }
       
-      if (!existingCategory) {
-        throw new Error("找不到要编辑的分类");
-      }
-      
-      // 更新分类
+      // 执行更新
+      console.log("开始更新分类，数据:", editForm);
       const { data, error } = await supabase
         .from('categories')
-        .update({
-          name: editForm.name.trim(),
-          description: editForm.description.trim()
-        })
+        .update(editForm)
         .eq('id', id)
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error("更新分类失败:", error);
+        throw error;
+      }
+      
+      console.log("分类更新成功:", data);
       
       // 更新本地状态
       setCategories(categories.map(cat => cat.id === id ? data : cat));
@@ -245,7 +267,9 @@ export function CategoriesClient({ categories: initialCategories }: { categories
       return;
     }
     
-    if (!confirm('确定要删除这个分类吗？分类下的所有工具也会被设为未分类！')) return;
+    if (!confirm('确定要删除此分类吗？此操作不可撤销！')) {
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
@@ -259,37 +283,21 @@ export function CategoriesClient({ categories: initialCategories }: { categories
         throw new Error("您的登录已过期，请重新登录");
       }
       
-      // 查询分类下是否有工具
-      const { data: tools, error: toolsError } = await supabase
+      // 检查是否有工具使用此分类
+      const { data: toolsUsingCategory, error: toolsError } = await supabase
         .from('tools')
         .select('id')
         .eq('category_id', id);
-      
-      if (toolsError) {
-        console.error("查询分类下的工具时出错:", toolsError);
-        throw new Error("无法检查分类下的工具");
-      }
-      
-      if (tools && tools.length > 0) {
-        if (!confirm(`此分类下有 ${tools.length} 个工具，删除后这些工具将变为未分类，确定要继续吗？`)) {
-          setIsLoading(false);
-          return;
-        }
         
-        // 需要先将该分类下的工具设为未分类
-        try {
-          // 将该分类下所有工具的category_id设为null
-          await supabase
-            .from('tools')
-            .update({ category_id: null })
-            .eq('category_id', id);
-        } catch (error) {
-          console.error("更新工具分类时出错:", error);
-          throw new Error("无法更新工具分类");
-        }
+      if (toolsError) {
+        console.error("检查关联工具时出错:", toolsError);
+        throw new Error("无法验证分类使用状态，删除取消");
       }
       
-      // 删除分类
+      if (toolsUsingCategory && toolsUsingCategory.length > 0) {
+        throw new Error(`无法删除此分类：有${toolsUsingCategory.length}个工具正在使用。请先移除这些工具或更改它们的分类。`);
+      }
+      
       const { error } = await supabase
         .from('categories')
         .delete()
@@ -297,7 +305,6 @@ export function CategoriesClient({ categories: initialCategories }: { categories
       
       if (error) throw error;
       
-      // 更新本地状态
       setCategories(categories.filter(cat => cat.id !== id));
       setSuccessMessage('分类删除成功');
       
