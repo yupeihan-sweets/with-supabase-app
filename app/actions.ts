@@ -53,7 +53,7 @@ export const signInAction = async (formData: FormData) => {
     return encodedRedirect("error", "/sign-in", error.message);
   }
 
-  return redirect("/protected");
+  return redirect("/");
 };
 
 export const forgotPasswordAction = async (formData: FormData) => {
@@ -124,11 +124,44 @@ export const resetPasswordAction = async (formData: FormData) => {
     );
   }
 
-  encodedRedirect("success", "/protected/reset-password", "Password updated");
+  return redirect("/sign-in");
 };
 
 export const signOutAction = async () => {
   const supabase = await createClient();
   await supabase.auth.signOut();
   return redirect("/sign-in");
+};
+
+// 工具点击统计函数
+export const recordToolClickAction = async (formData: FormData) => {
+  try {
+    const toolId = formData.get("toolId")?.toString();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!toolId) {
+      return { error: "Tool ID is required" };
+    }
+
+    // 记录点击
+    const { error } = await supabase
+      .from('clicks')
+      .insert({
+        tool_id: toolId,
+        user_id: user?.id,
+        referrer: formData.get("referrer")?.toString() || null,
+        user_agent: formData.get("userAgent")?.toString() || null,
+      });
+
+    if (error) {
+      console.error("Error recording click:", error);
+      return { error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Unexpected error in recordToolClickAction:", err);
+    return { error: "Unexpected error occurred" };
+  }
 };
